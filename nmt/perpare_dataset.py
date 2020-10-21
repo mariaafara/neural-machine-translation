@@ -4,16 +4,16 @@ import tensorflow as tf
 from tensorflow.keras.preprocessing.sequence import pad_sequences
 
 
-def read_lang_file(file_path,lang):
+def read_lang_file(file_path, lang):
     """
     This method reads a specific language file which has each text on a single line and returns a list of all the sentences
     :param file_path: the file path of which we want to read
     :param lang: a string the represents the language of the sentences in the file
     :return: a list of sentences
     """
-    with open(file_path,'r',encoding='utf-8') as f:
+    with open(file_path, 'r', encoding='utf-8') as f:
         lang_lines = f.readlines()
-    print("Total sentences of {} lang = {}".format(lang,len(lang_lines)))
+    print("Total sentences of {} lang = {}".format(lang, len(lang_lines)))
     return lang_lines
 
 
@@ -54,7 +54,7 @@ def load_dataset(source_lang, target_lang, file_path1, file_path2, percentage=10
     return df
 
 
-def transform_to_langs_pairs(df,number_examples=None):
+def transform_to_langs_pairs(df, number_examples=None):
     """
      This method transforms the source and target language sentences stored in separate columns into a list of tuples.
      The 1st element is the source sentence and the second element is the target sentence in the target language
@@ -64,22 +64,21 @@ def transform_to_langs_pairs(df,number_examples=None):
     :return: [(lang1,lang2),(lang1,lang2),...]
     """
     records = df[:number_examples].to_records(index=False)
-    list_pairs= list(records)
+    list_pairs = list(records)
     return list_pairs
 
 
-def filter_pairs(langs_pairs, MAX_LENGTH=20):
+def filter_pairs(langs_pairs, MAX_LENGTH):
     """
     This method filters out sentences with more than a certain nbr of words
     :param langs_pairs: pairs of sentences [(source_lang sentence, target_lang sentence),..]
     :param MAX_LENGTH: maximum length of sentence wanted
     :return: filtered list of pairs
     """
-    def filter_pair(langs_pair,MAX_LENGTH):
+    def filter_pair(langs_pair, MAX_LENGTH):
         return len(langs_pair[0].split()) < MAX_LENGTH and \
             len(langs_pair[1].split()) < MAX_LENGTH
-    return [lang_pair for lang_pair in langs_pairs if filter_pair(lang_pair,MAX_LENGTH)]
-
+    return [lang_pair for lang_pair in langs_pairs if filter_pair(lang_pair, MAX_LENGTH)]
 
 
 class Lang(object):
@@ -92,11 +91,12 @@ class Lang(object):
     """
     def __init__(self, name):
         self.name = name
-        self.word2int = {}  # maps words to integers
+        self.word2int = {"<SOS>": 1, "<EOS>": 2}  # maps words to integers
         #  EOS means End of Sentence and it's a token used to indicate the end of a sentence. Every sentence is going to have an EOS token. SOS means Start of Sentence and is used to indicate the start of a sentence.)
-        self.int2word = {0: "<SOS>", 1: "<EOS>"}  # maps integers to tokens (just the opposite of word2int but has some initial values.
+        self.int2word = {1: "<SOS>", 2: "<EOS>"}  # maps integers to tokens (just the opposite of word2int but has some initial values.
+#         leaving 0 for padding
         self.word2count = {}  # maps words to their total number in the corpus
-        self.n_words = 2  # Intial number of tokens (<EOS> and <SOS>)
+        self.n_words = 2  # Initial number of tokens (<EOS> and <SOS>)
 
     def addWord(self, word):
         """
@@ -108,9 +108,9 @@ class Lang(object):
         :return:
         """
         if word not in self.word2int:
-            self.word2int[word] = self.n_words
+            self.word2int[word] = self.n_words + 1
             self.word2count[word] = 1
-            self.int2word[self.n_words] = word
+            self.int2word[self.n_words + 1] = word
             self.n_words += 1
         else:
             self.word2count[word] += 1
@@ -124,7 +124,8 @@ class Lang(object):
         for word in sentence.split(' '):
             self.addWord(word)
 
-def sentence_to_indexes(sentence, lang, EOS_token=1):
+
+def sentence_to_indexes(sentence, lang, EOS_token=2):
     """
     This method encodes a sentence according to its language by giving an index to each word in the sentence
     It Iterates through a sentence, breaks it into words and maps each word to its corresponding integer value using the word2int dictionary which was implemented in the language class
@@ -135,20 +136,20 @@ def sentence_to_indexes(sentence, lang, EOS_token=1):
     :return: encoded sentence with numerical values
     """
     indexes = [lang.word2int[word] for word in sentence.split()]
-    indexes.append(EOS_token)
+    indexes.append(EOS_token) #TODO: check later
     return indexes
 
 
 #  and assign a corresponding  integer to each word in a new function.
 # Also since we are going to batch our dataset, we are going to apply padding to sentences with words less than the maximum length we proposed.
 
-def build_lang(lang1, lang2, pairs, max_length=20):
+def build_lang(lang1, lang2, pairs, MAX_LENGTH):
     """
     This method creates a Language class for both source and target languages
     :param lang1: source language
     :param lang2:  target language
     :param pairs: list of pairs : [(sentence in lang2, sentence in lang2)...]
-    :param max_length: max length of sequence
+    :param MAX_LENGTH: max length of sequence
     :return: padded sequences
     """
     # this function populates the word2int dictionary in each langauge class and pads
@@ -170,11 +171,12 @@ def build_lang(lang1, lang2, pairs, max_length=20):
     #  Pads sequences to the same length.
     #  we assign the argument post to pad or truncate at the end of the sequence
     #  it takes a list of sequences (each sequence is a list of integers) and returns a 2D Numpy array with shape (len(sequences), maxlen)
-    return pad_sequences(input_seq, maxlen=max_length, padding='post', truncating='post'), pad_sequences(output_seq, padding='post', truncating='post'), input_lang, output_lang
+    return pad_sequences(input_seq, maxlen=MAX_LENGTH, padding='post', truncating='post'), pad_sequences(output_seq, padding='post', truncating='post'), input_lang, output_lang
 
-def sort_into_batches(input_tensor, output_tensor, BATCH_SIZE = 16):
+
+def sort_into_batches(input_tensor, output_tensor, BATCH_SIZE):
     """
-    This method sorts the dataset into batches accelerate our training process using TensorFlow data API
+    This method sorts the dataset into batches to accelerate our training process using TensorFlow data API
     :param input_tensor:
     :param output_tensor:
     :param BATCH_SIZE:
@@ -184,9 +186,3 @@ def sort_into_batches(input_tensor, output_tensor, BATCH_SIZE = 16):
     dataset = tf.data.Dataset.from_tensor_slices((input_tensor, output_tensor)).shuffle(BUFFER_SIZE)
     dataset = dataset.batch(BATCH_SIZE)
     return dataset
-
-
-
-
-
-
