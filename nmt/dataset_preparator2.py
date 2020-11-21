@@ -38,14 +38,20 @@ class DataPreparator:
             print("Filtering sentences with max length < {} results in:".format(self.max_length))
             print("{} sentence for each language".format(df.shape[0]))
 
-        #  Iterates through the df rows for each row, implement the addSentence method on source and target
-        #  sentences using their corresponding Language class
-        for index, row in df.iterrows():
-            self.input_lang.addSentence(row[0])
-            self.output_lang.addSentence(row[1])
+        # #  Iterates through the df rows for each row, implement the addSentence method on source and target
+        # #  sentences using their corresponding Language class
+        # for index, row in df.iterrows():
+        #     self.input_lang.addSentence(row[0])
+        #     self.output_lang.addSentence(row[1])
 
         # Create training and validation sets using an 80-20 split
         train_df, val_df = train_test_split(df, test_size=self.test_size)
+
+        #  Iterates through the train_df rows for each row, implement the addSentence method on source and target
+        #  sentences using their corresponding Language class
+        for index, row in train_df.iterrows():
+            self.input_lang.addSentence(row[0])
+            self.output_lang.addSentence(row[1])
 
         train_input_seq, train_output_seq = self.encode_sentence(self.input_lang, self.output_lang, train_df)
         train_input_tensor, train_target_tensor = self.padd(train_input_seq, train_output_seq, train_df)
@@ -74,7 +80,8 @@ class DataPreparator:
         This method takes a text and returns a normalized version of it.
         It first lowers and removes newlines at the end of the texts.
         Then it separate punctuations concatenated to words by creating a space between a word and the punctuation;
-        This is done by using a regular expression to match the punctuation characters .!?, and surround them by spaces.
+        This is done by using a regular expression to match the punctuation characters .!?,() and surround them by
+        spaces.
         Finally collapse multiple spaces anywhere in the text.
         :param s: a string
         :return: normalized text
@@ -91,6 +98,7 @@ class DataPreparator:
     def load_dataset(self):
         """
         This method loads source and target languages files and returns a dataframe with each column as a language.
+        Select percentage of rows in dataframe, and remove duplicates
         """
         source_lang_lines = self.read_lang_file(self.file_path1, self.source_lang)
         target_lang_lines = self.read_lang_file(self.file_path2, self.target_lang)
@@ -116,7 +124,6 @@ class DataPreparator:
         :param df:
         :return:
         """
-
         def len_(sen):
             return len(sen.split())
 
@@ -155,7 +162,6 @@ class DataPreparator:
         :param pairs: pairs of sentences [(source_lang sentence, target_lang sentence),..]
         :return: filtered list of pairs
         """
-
         def filter_pair(self, pair):
             return len(pair[0].split()) < self.max_length and \
                    len(pair[1].split()) < self.max_length
@@ -177,7 +183,7 @@ class DataPreparator:
         :param EOS_token:
         :return: encoded sentence with numerical values
         """
-        indexes = [lang.word2int[word] for word in sentence.split()]
+        indexes = [lang.word2int[word] if word in lang.word2int else lang.word2int["<UNK>"] for word in sentence.split() ]
         indexes.append(EOS_token)  # TODO: check later
         return indexes
 
@@ -241,20 +247,20 @@ class Lang(object):
 
     def __init__(self, name):
         self.name = name
-        self.word2int = {"<SOS>": 1, "<EOS>": 2}  # maps words to integers
+        self.word2int = {"<SOS>": 1, "<EOS>": 2, "<UNK>": 3}  # maps words to integers
         #  EOS means End of Sentence and it's a token used to indicate the end of a sentence. Every sentence is going to
         #  have an EOS token. SOS means Start of Sentence and is used to indicate the start of a sentence.)
         self.int2word = {1: "<SOS>",
-                         2: "<EOS>"}  # maps integers to tokens (just the opposite of word2int but has some initial
+                         2: "<EOS>",
+                         3: "<UNK>"}  # maps integers to tokens (just the opposite of word2int but has some initial
         # values.
         #         leaving 0 for padding
         self.word2count = {}  # maps words to their total number in the corpus
-        self.n_words = 2  # Initial number of tokens (<EOS> and <SOS>)
+        self.n_words = 3  # Initial number of tokens (<EOS> and <SOS> and <UNK>)
 
     def addWord(self, word):
         """
-        This method adds words from a spe
-        cific language corpus to its language class dictionaries.
+        This method adds words from a specific language corpus to its language class dictionaries.
         It adds a word as a key to the word2int dictionary with its value being a corresponding integer
         The opposite is done for the int2word dictionary
         :param word:
