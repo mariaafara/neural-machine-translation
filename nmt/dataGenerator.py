@@ -11,13 +11,13 @@ class DataGenerator(tf.keras.utils.Sequence):
     Data generators are a way to provide batches of data on-the-fly during training phase.
     It is most needed when dealing with huge datasets, where the whole data cannot be stored in memory.
     """
-    def __init__(self, lang_dic, df, max_length, batch_size, phase_train=True):
+    def __init__(self, lang_dic, df, max_length, batch_size): #, phase_train=True):
         self.lang_dic = lang_dic
         self.df = df
         self.max_length = max_length
         self.batch_size = batch_size
         self.size = df.shape[0]
-        self.phase_train = phase_train
+        # self.phase_train = phase_train
         self.columns = df.columns.tolist()
         self.on_epoch_end()
 
@@ -35,11 +35,13 @@ class DataGenerator(tf.keras.utils.Sequence):
         # selects indices of data for next batch`
         indexes = self.indexes[index * self.batch_size: (index + 1) * self.batch_size]
         batch = self.df.iloc[indexes]
-        if self.phase_train:
-            batched_input_seq, batched_output_seq = self.encode_sentence(self.lang_dic[self.columns[0]],
-                                                                         self.lang_dic[self.columns[1]], batch)
-            batched_padded_input_seq, batched_padded_output_seq = self.padd(batched_input_seq, batched_output_seq)
+        # if self.phase_train:
+        batched_input_seq, batched_output_seq = self.encode_sentence(self.lang_dic[self.columns[0]],
+                                                                     self.lang_dic[self.columns[1]], batch)
+        batched_padded_input_seq, batched_padded_output_seq = self.padd(batched_input_seq, batched_output_seq)
         return batched_padded_input_seq, batched_padded_output_seq
+        # else:
+        #     return batch
 
     def sentence_to_indexes(self, sentence, lang, EOS_token=2):
         """
@@ -65,10 +67,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         for index, row in df.iterrows():
             input_seq.append(self.sentence_to_indexes(row[0], input_lang))
             output_seq.append(self.sentence_to_indexes(row[1], output_lang))
-        # df_new = pd.DataFrame()
-        # df_new["input"] = df.apply(lambda row : self.sentence_to_indexes(row[0], input_lang), axis=1)
-        # df_new["output"] = df.apply(lambda row : self.sentence_to_indexes(row[1], output_lang), axis=1)
-        #
         return input_seq, output_seq
 
     def padd(self, input_seq, output_seq):
@@ -79,18 +77,6 @@ class DataGenerator(tf.keras.utils.Sequence):
         :param df:
         :return: padded sequences for src and target
         """
-
-        #  we assign the argument post to pad or truncate at the end of the sequence
-        #  it takes a list of sequences (each sequence is a list of integers) and returns a 2D Numpy array with shape
-        #  (len(sequences), maxlen)
-        # df_new = pd.DataFrame()
-        # pad_src = pad_sequences(df["input"].tolist(), maxlen=self.max_length, padding='post', truncating='post')
-        # # with or without specifying the max len for the target pad it will pad to the max length of the sentences
-        # pad_target = pad_sequences(df["output"].tolist(), padding='post', truncating='post')
-        # df_new["input"] = pad_src
-        # df_new["output"] = pad_target
-        # return df_new
-
         pad_src = pad_sequences(input_seq, maxlen=self.max_length, padding='post', truncating='post')
         # with or without specifying the max len for the target pad it will pad to the max length of the sentences
         pad_target = pad_sequences(output_seq, padding='post', truncating='post')
