@@ -1,5 +1,6 @@
 import tensorflow as tf
 
+
 class BahdanauAttention(tf.keras.models.Model):
     """
     BahdanauAttention also known as Additive Attention calculates additive/concat alignment score which quantifies how
