@@ -26,11 +26,11 @@ class Decoder(tf.keras.models.Model):
                                            return_sequences=True,
                                            return_state=True,
                                            name="decoder_GRU")
-        self.dense = tf.keras.layers.Dense(vocab_size)
-
-        if with_attention:
+        if self.with_attention:
             # used for attention
             self.attention = BahdanauAttention(self.decoder_size)
+
+        self.dense = tf.keras.layers.Dense(vocab_size)
 
     def call(self, sequence, initial_states, encoder_out=None):
         """
