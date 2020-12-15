@@ -13,6 +13,8 @@ class Decoder(tf.keras.models.Model):
         self.decoder_size = decoder_size
         self.unit_type = unit_type
         self.with_attention= with_attention
+        self.attention_weights = None
+        self.context_vector = None
         self.embedding = tf.keras.layers.Embedding(vocab_size, embedding_dim, name="decoder_embedding")
         if self.unit_type == Decoder.LSTM_UNIT:
             self.rnn = tf.keras.layers.LSTM(self.decoder_size,
@@ -32,11 +34,12 @@ class Decoder(tf.keras.models.Model):
 
         self.dense = tf.keras.layers.Dense(vocab_size)
 
-    def call(self, sequence, initial_states, encoder_out=None):
+    def call(self, sequence, decoder_hidden, encoder_out=None):
+
         """
         the final states of the encoder will act as the initial states of the decoder
         :param sequence: (batch_size, max_sequence length)
-        :param initial_states: initial_state of the decoder; if encoder was LSTM_UNIT: 2 * (batch_size, encoder_size)
+        :param decoder_hidden: initial_state of the decoder; if encoder was LSTM_UNIT: 2 * (batch_size, encoder_size)
         if GRU_UNIT: (batch_size, encoder_size)
         :return rnn_out is of shape (batch_size, max_sequence length, encoder_size), both forward_hidden and forward_cell are of shapes (batch_size, encoder_size)
         decoder_output: (batch_size, max_sequence length, vocab_size)
@@ -45,23 +48,23 @@ class Decoder(tf.keras.models.Model):
 
         if self.with_attention:
             # enc_output shape == (batch_size, max_length, hidden_size)
-            context_vector, attention_weights = self.attention(encoder_out, decoder_hidden)
-            embedded_sequence = tf.concat([tf.expand_dims(context_vector, 1), embedded_sequence], axis=-1)
+            self.context_vector, self.attention_weights = self.attention(encoder_out, decoder_hidden)
+            embedded_sequence = tf.concat([tf.expand_dims(self.context_vector, 1), embedded_sequence], axis=-1)
 
         if self.unit_type == Decoder.GRU_UNIT:
-            rnn_output, forward_hidden = self.rnn(embedded_sequence, initial_state=initial_states)
+            rnn_output, forward_hidden = self.rnn(embedded_sequence, initial_state=decoder_hidden)
             if self.with_attention:
                 rnn_output = tf.reshape(rnn_output, (-1, rnn_output.shape[2]))
             decoder_output = self.dense(rnn_output)
             if self.with_attention:
-                return decoder_output, forward_hidden, attention_weights
+                return decoder_output, forward_hidden, self.attention_weights
             return decoder_output, forward_hidden
         elif self.unit_type == Decoder.LSTM_UNIT:
-            rnn_output, forward_hidden, forward_cell = self.rnn(embedded_sequences, initial_state=initial_states)
+            rnn_output, forward_hidden, forward_cell = self.rnn(embedded_sequences, initial_state=decoder_hidden)
             if self.with_attention:
                 rnn_output = tf.reshape(rnn_output, (-1, rnn_output.shape[2]))
             decoder_output = self.dense(rnn_output)
             if self.with_attention:
-                return decoder_output, forward_hidden, forward_cell, attention_weights
+                return decoder_output, forward_hidden, forward_cell, self.attention_weights
             return decoder_output, forward_hidden, forward_cell
 
