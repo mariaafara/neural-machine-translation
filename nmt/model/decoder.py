@@ -44,9 +44,9 @@ class Decoder(tf.keras.models.Model):
         embedded_sequence = self.embedding(sequence) # (batch_size, max_sequence length, vocab_size)
 
         if self.with_attention:
-            embedded_sequence = tf.concat([tf.expand_dims(context_vector, 1), embedded_sequence], axis=-1)
             # enc_output shape == (batch_size, max_length, hidden_size)
             context_vector, attention_weights = self.attention(encoder_out, decoder_hidden)
+            embedded_sequence = tf.concat([tf.expand_dims(context_vector, 1), embedded_sequence], axis=-1)
 
         if self.unit_type == Decoder.GRU_UNIT:
             rnn_output, forward_hidden = self.rnn(embedded_sequence, initial_state=initial_states)
